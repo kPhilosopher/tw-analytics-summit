@@ -81,9 +81,10 @@ get.color.data<-function(data=read.astro()){
    return(cdata)
 }
 
-plot.colors<-function(cdata=get.color.data(),contours=F,quasars=T){
+plot.colors<-function(cdata=get.color.data(),contours=F,quasars=F){
    #make a basic ggpplot scatter plot of x versus y
-   p<-ggplot(cdata,aes(x,y,colour=objtype,group=objtype,linetype=objtype))+geom_point(size=0.7)
+   p<-ggplot(cdata,aes(x,y,colour=objtype,group=objtype,linetype=objtype))
+   p=p+geom_point(size=0.9)
    #break it up into fascets so that x,y mean the same thing witin a subplot
    p=p+facet_wrap(~ctype,ncol=2,scales="free")
    if (contours==T) {
