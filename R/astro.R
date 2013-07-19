@@ -181,14 +181,17 @@ run.svm<-function(){
    # Build a Support Vector Machine model.
    
    set.seed(crv$seed)
+   print("Building SVM")
    crs$ksvm <- ksvm(as.factor(objtype) ~ .,
                     data=crs$dataset[crs$train,c(crs$input, crs$target)],
                     kernel="rbfdot",
                     prob.model=TRUE)
+   print("Done building SVM")
    # Show result
    print(crs$ksvm)
    
    # Generate a Confusion Matrix for the SVM model.
+   print("Running SVM on validation sample")
    crs$pr <- predict(crs$ksvm, na.omit(crs$dataset[crs$validate, c(crs$input, crs$target)]))
    tab<-table(na.omit(crs$dataset[crs$validate, c(crs$input, crs$target)])$objtype, crs$pr,
               dnn=c("Actual", "Predicted"))
@@ -196,11 +199,13 @@ run.svm<-function(){
    print("Confusion Matrix")
    print(tab)
    return(crs)
+   print("Finished SVM code")
 }
 
 test.all<-function(prompt=F){
    #a basic test that runs all the programs 
-   t0=proc.time()
+   print("Running all tests")
+   t0=proc.time()[[3]]
    data=read.astro()
    plot.radec(data,dopng=T)
    if (prompt) ok=readline("ok?")
@@ -209,10 +214,10 @@ test.all<-function(prompt=F){
    plot.colors(dopng=T)
    if (prompt) ok=readline("ok?")
    plot.colors(cont=T,dopng=T)
-   tsvm0=proc.time()
+   tsvm0=proc.time()[[3]]
    crv=run.svm()
-   print('Time to run svm: ',paste(proc.time()-tsvm0),'seconds')
+   print(paste('Time to run svm: ',proc.time()[[3]]-tsvm0,'seconds'))
    print('Congrats! It all ran.')
-   print('Time to run full test: ',paste(proc.time()-t0),'seconds')
+   print(paste('Time to run full test: ',proc.time()[[3]]-t0,'seconds'))
 }
 
