@@ -1,8 +1,10 @@
 #discover quasars
 library(ggplot2)
 library(data.table)
+library(kernlab)
 
 data_dir="/Users/davej/TW/tw-analytics-summit/data/astro"
+plotdir="/Users/davej/TW/tw-analytics-summit/plots/"
 
 read.astro<-function(){
    #a simple reader for the astro data-set (SDSS Survey)
@@ -34,12 +36,15 @@ add.colors<-function(data){
 }
 
 plot.radec<-function(
-   data=read.astro(),rs.min=0.02,rs.max=0.06,type='galaxy',contours=F
+   data=read.astro(),rs.min=0.02,rs.max=0.06,type='galaxy',
+   contours=F,dopng=F
    ){
    #make a plot of ra,dec (like longitude, lattitude for the sky)
    #default data is automatically read from file
    #cont - if set to TRUE, will add contours 
    #rs.min, rs.max the min and max redshifts
+   
+   outfile='ra-dec-dist'
    print(paste('object type:',type))
    print(paste('redshift range:',rs.min,'to',rs.max))
    #make the cut on redshifts and obj.type, keep only ra,dec columns
@@ -55,9 +60,10 @@ plot.radec<-function(
    if (contours==T) {
       #add contours to plot
       p=p+geom_density2d(size=.5,linetype='solid',colour='red')
+      outfile=paste(outfile,'-contours',sep='')
    }
    #'printng' a ggplot object means, make the plot
-   print(p)
+   show_plot(p,dopng=dopng,file=outfile)
 }
 
 get.color.data<-function(data=read.astro()){
@@ -81,8 +87,11 @@ get.color.data<-function(data=read.astro()){
    return(cdata)
 }
 
-plot.colors<-function(cdata=get.color.data(),contours=F,quasars=F){
+plot.colors<-function(cdata=get.color.data(),contours=F,
+                      quasars=F,dopng=F){
    #make a basic ggpplot scatter plot of x versus y
+   
+   outfile='colors-ugriz'
    p<-ggplot(cdata,aes(x,y,colour=objtype,group=objtype,linetype=objtype))
    p=p+geom_point(size=0.9)
    #break it up into fascets so that x,y mean the same thing witin a subplot
@@ -90,6 +99,7 @@ plot.colors<-function(cdata=get.color.data(),contours=F,quasars=F){
    if (contours==T) {
       #add contours to plot
       p=p+geom_density2d(size=.5,color='black')
+      outfile=paste(outfile,'-contours',sep='')
    }
    if (quasars==T) {
       #TODO, unfinished
@@ -98,7 +108,7 @@ plot.colors<-function(cdata=get.color.data(),contours=F,quasars=F){
       qc=get.color.data(q)     
       qc$rs.bin=1:nrow(qc)
    }
-   print(p)
+   show_plot(p,dopng=dopng,file=outfile)
 }
 
 quasar.track<-function(data=read.astro(),binsize=0.15){
@@ -119,20 +129,90 @@ quasar.track<-function(data=read.astro(),binsize=0.15){
    return(qdat)
 }
 
-test.all<-function(){
-   #a basic test that runs all the programs 
-   data=read.astro()
-   ok=readline("ok?")
-   plot.radec(data)
-   ok=readline("ok?")
-   plot.radec(data,cont=T)
-   ok=readline("ok?")
-   plot.colors()
-   ok=readline("ok?")
-   plot.colors(cont=T)
-   print('Congrats! It ran.')
+show_plot<-function(p="Nothing to Plot",dopng=F,file="TemporaryPlot",extra=NULL,
+                    sep="_",verb=0,width=800,height=700,dir=plotdir) {
+   
+   #a useful utility function for plotting or just printing to window
+   #p<-qplot(c(0,1))
+   #show_plot(p,dopng=T)
+   if (!dopng) {
+      print(p)
+      #and nothing else
+   } else {
+      #uses global plotdir  
+      wmessage=paste("Warning, no file provided. Printing to :",file)
+      if (file == "TemporaryPlot") print(wmessage)
+      
+      ex=""
+      if (! is.null(extra)) {
+         #extra stuff to join in with underscores
+         ex=paste(sep,paste(extra,collapse=sep),sep="")
+      } 
+      print(length(ex))
+      outfile=paste(dir,file,ex,".png",sep="")
+      if (verb > 0) print(paste("Writing to file:",outfile))
+      png(outfile,width=width,height=height)  
+      print(p)
+      dev.off()
+   }
 }
 
+run.svm<-function(){
+   #Run the SVM on the quasar colors
+   print("Running support vector machine code")
+   frac.train=0.70
+   frac.valid=0.25
+   
+   crv$seed <- 42 
+   crs$dataset <- read.csv("file:///Users/davej/TW/tw-analytics-summit/data/astro/sdss2.csv", 
+                           na.strings=c(".", "NA", "", "?"), strip.white=TRUE, 
+                           encoding="UTF-8")
+   
+   # Build the training/validate/test datasets.
+   set.seed(crv$seed) 
+   crs$nobs <- nrow(crs$dataset)
+   crs$sample <- crs$train <- sample(nrow(crs$dataset), frac.train*crs$nobs)
+   crs$validate <- sample(setdiff(seq_len(nrow(crs$dataset)), crs$train), frac.valid*crs$nobs)
+   crs$test <- setdiff(setdiff(seq_len(nrow(crs$dataset)), crs$train), crs$validate) 
+   
+   crs$input <- c("ug", "gr", "ri", "iz")
+   crs$target  <- "objtype"
+   
+   # Build a Support Vector Machine model.
+   
+   set.seed(crv$seed)
+   crs$ksvm <- ksvm(as.factor(objtype) ~ .,
+                    data=crs$dataset[crs$train,c(crs$input, crs$target)],
+                    kernel="rbfdot",
+                    prob.model=TRUE)
+   # Show result
+   print(crs$ksvm)
+   
+   # Generate a Confusion Matrix for the SVM model.
+   crs$pr <- predict(crs$ksvm, na.omit(crs$dataset[crs$validate, c(crs$input, crs$target)]))
+   tab<-table(na.omit(crs$dataset[crs$validate, c(crs$input, crs$target)])$objtype, crs$pr,
+              dnn=c("Actual", "Predicted"))
+   
+   print("Confusion Matrix")
+   print(tab)
+   return(crs)
+}
 
-
+test.all<-function(prompt=F){
+   #a basic test that runs all the programs 
+   t0=proc.time()
+   data=read.astro()
+   plot.radec(data,dopng=T)
+   if (prompt) ok=readline("ok?")
+   plot.radec(data,cont=T,dopng=T)
+   if (prompt) ok=readline("ok?")
+   plot.colors(dopng=T)
+   if (prompt) ok=readline("ok?")
+   plot.colors(cont=T,dopng=T)
+   tsvm0=proc.time()
+   crv=run.svm()
+   print('Time to run svm: ',paste(proc.time()-tsvm0),'seconds')
+   print('Congrats! It all ran.')
+   print('Time to run full test: ',paste(proc.time()-t0),'seconds')
+}
 
