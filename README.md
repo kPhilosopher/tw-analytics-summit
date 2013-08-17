@@ -29,3 +29,7 @@ Then navigate to `/full/path/to/repo` and click Choose -> Create Project.
 ### Initialize your session.
 
 Open `R/init.R` and Source it.
+
+## Gist: plotting logistic regression separating line:
+
+[https://gist.github.com/fwhigh/6258457](https://gist.github.com/fwhigh/6258457)
